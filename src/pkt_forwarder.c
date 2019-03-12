@@ -124,6 +124,14 @@ typedef struct
     uint64_t gw_id; /*!> LoRa gateway 64b ID (eg. MAC address) */
     char serv_addr[64]; /*!> address of the server (host name or IPv4/IPv6) */
     char serv_port_up[8]; /*!> server port for upstream traffic */
+/**************************************************************************************************/
+    char serv_addr_second[64]; /*!> address of the second server (host name or IPv4/IPv6) */
+    char serv_port_up_second[8]; /*!> second server port for upstream traffic */
+/**************************************************************************************************/
+/**************************************************************************************************/
+    char serv_addr_third[64]; /*!> address of the third server (host name or IPv4/IPv6) */
+    char serv_port_up_third[8]; /*!> third server port for upstream traffic */
+/**************************************************************************************************/
     char serv_port_down[8]; /*!> server port for downstream traffic */
     int keepalive_time; /*!> send a PULL_DATA request every X seconds, negative = disabled */
     unsigned stat_interval; /*!> time interval (in sec) at which statistics are collected and displayed */
@@ -223,6 +231,14 @@ int i2c_dev = -1;        /* context for linuxdev I2C driver (file descriptor) */
 static int sock_up; /* socket for upstream traffic */
 static struct sockaddr_storage sa_up;
 static socklen_t salen_up = sizeof(sa_up);
+/*****************************************************************************/
+static struct sockaddr_storage *p_sa_up_second;
+static socklen_t salen_up_second = sizeof( *p_sa_up_second );
+/*****************************************************************************/
+/*****************************************************************************/
+static struct sockaddr_storage *p_sa_up_third;
+static socklen_t salen_up_third = sizeof( *p_sa_up_third );
+/*****************************************************************************/
 static int sock_down; /* socket for downstream traffic */
 static struct sockaddr_storage sa_down;
 static socklen_t salen_down = sizeof(sa_down);
@@ -349,6 +365,12 @@ int main( int argc, char ** argv )
     {
         .gw_id = 0,
         .serv_addr = "127.0.0.1",
+/**************************************************************************************************/
+        .serv_addr_second = "127.0.0.1",
+/**************************************************************************************************/
+/**************************************************************************************************/
+        .serv_addr_third = "127.0.0.1",
+/**************************************************************************************************/
         .serv_port_up = "1780",
         .serv_port_down = "1782",
         .keepalive_time = DEFAULT_KEEPALIVE,
@@ -374,6 +396,12 @@ int main( int argc, char ** argv )
     struct addrinfo * result; /* store result of getaddrinfo */
     struct addrinfo * q; /* pointer to move into result data array */
     char host_name[64];
+/**************************************************************************************************/
+    char host_name_second[64];
+/**************************************************************************************************/
+/**************************************************************************************************/
+    char host_name_third[64];
+/**************************************************************************************************/
     char port_name[64];
 
     /* Variables to get local copies of measurements */
@@ -655,6 +683,95 @@ int main( int argc, char ** argv )
 
     /* Free the result of getaddrinfo */
     freeaddrinfo( result );
+
+/**************************************************************************************************/
+    if( NULL != p_sa_up_second ) {
+      do {
+        int iSockTmp;
+
+        /* Look for second server address w/ upstream port */
+        x = getaddrinfo( gwc.serv_addr_second, gwc.serv_port_up_second, &hints, &result );
+        if( x != 0 )
+        {
+            printf( "ERROR: [up] getaddrinfo on address %s (PORT %s) returned %s\n", gwc.serv_addr_second, gwc.serv_port_up_second, gai_strerror( x ) );
+            break;
+        }
+
+        /* Try to open UDP socket for upstream traffic */
+        for( q = result; q != NULL; q = q->ai_next )
+        {
+            iSockTmp = socket( q->ai_family, q->ai_socktype, q->ai_protocol );
+            if( iSockTmp == -1 ) continue; /* try next field */
+            else break; /* success, get out of loop */
+        }
+        if( q == NULL )
+        {
+            printf( "ERROR: [up] failed to open socket to any of server %s addresses (port %s)\n", gwc.serv_addr_second, gwc.serv_port_up_second );
+            break;
+        }
+        else
+        {
+            getnameinfo( q->ai_addr, q->ai_addrlen, host_name_second, sizeof host_name_second, port_name, sizeof port_name, NI_NUMERICHOST );
+            printf( "INFO: socket %i opened for upstream traffic, host: %s, port: %s\n", iSockTmp, host_name_second, port_name );
+        }
+
+        if (salen_up_second > q->ai_addrlen) {
+            salen_up_second = q->ai_addrlen;
+        }
+
+        memcpy(p_sa_up_second, q->ai_addr, salen_up_second);
+
+        /* Free the result of getaddrinfo */
+        freeaddrinfo( result );
+
+        close( iSockTmp );
+      } while( 0 );
+    }
+/**************************************************************************************************/
+/**************************************************************************************************/
+    if( NULL != p_sa_up_third ) {
+      do {
+        int iSockTmp;
+
+        /* Look for second server address w/ upstream port */
+        x = getaddrinfo( gwc.serv_addr_third, gwc.serv_port_up_third, &hints, &result );
+        if( x != 0 )
+        {
+            printf( "ERROR: [up] getaddrinfo on address %s (PORT %s) returned %s\n", gwc.serv_addr_third, gwc.serv_port_up_third, gai_strerror( x ) );
+            break;
+        }
+
+        /* Try to open UDP socket for upstream traffic */
+        for( q = result; q != NULL; q = q->ai_next )
+        {
+            iSockTmp = socket( q->ai_family, q->ai_socktype, q->ai_protocol );
+            if( iSockTmp == -1 ) continue; /* try next field */
+            else break; /* success, get out of loop */
+        }
+        if( q == NULL )
+        {
+            printf( "ERROR: [up] failed to open socket to any of server %s addresses (port %s)\n", gwc.serv_addr_third, gwc.serv_port_up_third );
+            break;
+        }
+        else
+        {
+            getnameinfo( q->ai_addr, q->ai_addrlen, host_name_third, sizeof host_name_third, port_name, sizeof port_name, NI_NUMERICHOST );
+            printf( "INFO: socket %i opened for upstream traffic, host: %s, port: %s\n", iSockTmp, host_name_third, port_name );
+        }
+
+        if (salen_up_third > q->ai_addrlen) {
+            salen_up_third = q->ai_addrlen;
+        }
+
+        memcpy(p_sa_up_third, q->ai_addr, salen_up_third);
+
+        /* Free the result of getaddrinfo */
+        freeaddrinfo( result );
+
+        close( iSockTmp );
+      } while( 0 );
+    }
+/**************************************************************************************************/
 
     /* Look for server address w/ downstream port */
     x = getaddrinfo( gwc.serv_addr, gwc.serv_port_down, &hints, &result );
@@ -1569,6 +1686,16 @@ static void * thread_up( const void * arg )
             printf( "DEBUG: sock:%d; buff:%p; index:%d; sa:%p; salen:%u;\n", sock_up, buff_up, buff_index, &sa_up, salen_up);
             continue;
         }
+/**************************************************************************************************/
+        if( NULL != p_sa_up_second ) {
+          sendto( sock_up, (void *)buff_up, buff_index, 0, (struct sockaddr *)p_sa_up_second, salen_up_second );
+        }
+/**************************************************************************************************/
+/**************************************************************************************************/
+        if( NULL != p_sa_up_third ) {
+          sendto( sock_up, (void *)buff_up, buff_index, 0, (struct sockaddr *)p_sa_up_third, salen_up_third );
+        }
+/**************************************************************************************************/
 
         pthread_mutex_lock( &mx_meas_up );
         meas_up.dgram_sent += 1;
@@ -3132,6 +3259,43 @@ static int parse_gateway_configuration( JSON_Object * gw_conf_obj, gw_conf_t * g
         snprintf( gwc->serv_port_down, sizeof gwc->serv_port_down, "%u", (uint16_t)json_value_get_number( val ) );
         printf( "INFO: downstream port is configured to \"%s\"\n", gwc->serv_port_down );
     }
+
+/**************************************************************************************************/
+    /* Get second server host name or IP address */
+    val = json_object_get_value( gw_conf_obj, "server_address_second" );
+    if( json_value_get_type( val ) == JSONString )
+    {
+      p_sa_up_second = malloc( sizeof( struct sockaddr_storage ) );
+      strncpy( gwc->serv_addr_second, json_value_get_string( val ), sizeof gwc->serv_addr_second );
+      val = json_object_get_value( gw_conf_obj, "serv_port_up_second" );
+      if( val != NULL )
+      {
+        snprintf( gwc->serv_port_up_second, sizeof gwc->serv_port_up_second, "%u", (uint16_t)json_value_get_number( val ) );
+      } else {
+        memcpy( gwc->serv_port_up_second, gwc->serv_port_up, sizeof( gwc->serv_port_up_second ) );
+      }
+    }
+    printf( "INFO: second server hostname or IP address is configured to \"%s\"\n", gwc->serv_addr_second );
+    printf( "INFO: second upstream port is configured to \"%s\"\n", gwc->serv_port_up_second );
+/**************************************************************************************************/
+/**************************************************************************************************/
+    /* Get third server host name or IP address */
+    val = json_object_get_value( gw_conf_obj, "server_address_third" );
+    if( json_value_get_type( val ) == JSONString )
+    {
+      p_sa_up_third = malloc( sizeof( struct sockaddr_storage ) );
+      strncpy( gwc->serv_addr_third, json_value_get_string( val ), sizeof gwc->serv_addr_third );
+      val = json_object_get_value( gw_conf_obj, "serv_port_up_third" );
+      if( val != NULL )
+      {
+        snprintf( gwc->serv_port_up_third, sizeof gwc->serv_port_up_third, "%u", (uint16_t)json_value_get_number( val ) );
+      } else {
+        memcpy( gwc->serv_port_up_third, gwc->serv_port_up, sizeof( gwc->serv_port_up_third ) );
+      }
+    }
+    printf( "INFO: third server hostname or IP address is configured to \"%s\"\n", gwc->serv_addr_third );
+    printf( "INFO: third upstream port is configured to \"%s\"\n", gwc->serv_port_up_third );
+/**************************************************************************************************/
 
     /* Get keep-alive interval (in seconds) for downstream (-1 to disable) */
     val = json_object_get_value( gw_conf_obj, "keepalive_interval" );
